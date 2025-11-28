@@ -18,6 +18,19 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+form {
+  textarea {
+    @apply border border-gray-300 bg-white w-full p-3 field-sizing-content min-h-12;
+  }
+}
+
+.button {
+  @apply py-2 px-3 rounded transition-all ease-in-out duration-300 cursor-pointer;
+  &.button--default {
+    @apply border-gray-300 bg-gray-200 hover:bg-gray-300 hover:border-gray-500;
+  }
+}
+
 .outlined {
   @apply outline-1 outline-dashed outline-red-300;
   * {
