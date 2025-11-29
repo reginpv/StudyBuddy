@@ -42,7 +42,7 @@ const Modal: React.FC<ModalProps> = ({ title, isOpen, onClose, children }) => {
       {/* Modal content */}
       <div className="relative bg-white rounded-lg shadow-lg max-w-md w-full h-auto max-h-[90dvh] ">
         <button
-          className="absolute rounded-full aspect-square p-2 border border-white bg-neutral-700 -top-3 -right-3 text-white text-xl"
+          className="absolute cursor-pointer rounded-full aspect-square p-2 border border-white bg-neutral-700 -top-3 -right-3 text-white text-xl"
           onClick={onClose}
         >
           <X />

@@ -112,7 +112,7 @@ export default function FormChat({
       <form
         data-loading={isLoading}
         onSubmit={(e) => handleChat(e)}
-        className={`${className} flex-1 sticky bottom-[40px] flex flex-col gap-2 bg-white`}
+        className={`${className} flex-1 sticky bottom-10 flex flex-col gap-2 bg-white`}
       >
         <div className="form-control">
           <textarea
