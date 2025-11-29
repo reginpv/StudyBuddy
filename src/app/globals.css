@@ -19,8 +19,12 @@ body {
 }
 
 form {
+  input,
   textarea {
-    @apply border border-gray-300 bg-white w-full p-3 field-sizing-content min-h-12;
+    @apply border border-gray-300 bg-white w-full p-3;
+  }
+  textarea {
+    @apply field-sizing-content min-h-12;
   }
 }
 
