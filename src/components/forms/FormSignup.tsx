@@ -3,6 +3,7 @@
 import { createUser } from '@/lib/actions/user'
 import { useActionState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 
 export default function FormSignup() {
   // Init
@@ -25,7 +26,15 @@ export default function FormSignup() {
   useEffect(() => {
     console.log(state)
     if (state.success) {
-      redirect('/login')
+      // Do toast
+      toast.success('User created successfully! Redirecting to login...')
+
+      //
+      setTimeout(() => {
+        redirect('/login')
+      }, 1000)
+
+      //
     }
   }, [state])
 
@@ -34,6 +43,7 @@ export default function FormSignup() {
       data-loading={isPending}
       action={handleSubmit}
       className="flex flex-col gap-3"
+      noValidate
     >
       <div>
         <input

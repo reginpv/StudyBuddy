@@ -37,6 +37,14 @@ export async function createUser(
   if (!password)
     errors.push({ field: 'password', message: 'Password is required' })
 
+  // Validate email regex
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email)) {
+    errors.push({ field: 'email', message: 'Invalid email address' })
+  }
+
+  // Validate
+
   if (errors.length > 0) {
     return {
       success: false,
