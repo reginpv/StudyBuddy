@@ -35,6 +35,10 @@ form {
   }
 }
 
+.form-error {
+  @apply text-red-500 text-sm pl-1 mt-1;
+}
+
 .outlined {
   @apply outline-1 outline-dashed outline-red-300;
   * {
