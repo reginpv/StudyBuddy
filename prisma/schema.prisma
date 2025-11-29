@@ -17,11 +17,13 @@ datasource db {
 // 1. USER & AUTH (Compatible with NextAuth / Auth.js)
 // --------------------------------------------------------
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String    @id @default(cuid())
+  email     String    @unique
   name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  password  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  lastLogin DateTime?
 
   // Relations
   files File[]
