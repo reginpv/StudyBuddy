@@ -1,0 +1,110 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  //url      = env("DATABASE_URL")
+}
+
+// --------------------------------------------------------
+// 1. USER & AUTH (Compatible with NextAuth / Auth.js)
+// --------------------------------------------------------
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  files     File[]
+  chats     Chat[]
+}
+
+// --------------------------------------------------------
+// 2. KNOWLEDGE BASE (RAG Sources)
+// --------------------------------------------------------
+model File {
+  id        String   @id @default(cuid())
+  name      String
+  url       String?  // If stored in S3/Blob storage
+  mimeType  String   // e.g., application/pdf, text/plain
+  
+  // Processing status
+  status    FileStatus @default(PENDING)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  embeddings Embedding[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Embedding {
+  id        String   @id @default(cuid())
+  content   String   // The actual text chunk
+  
+  // The vector data. 
+  // 1536 is standard for OpenAI (text-embedding-3-small). 
+  // Change to 768 for Nomic/HuggingFace open models.
+  vector    Unsupported("vector(1536)") 
+  
+  metadata  Json?    // Store page numbers, line numbers, etc.
+  
+  fileId    String
+  file      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  // Explicit index for fast vector similarity search (HNSW)
+  // Note: This often requires raw SQL to tune, but this is the logical link.
+}
+
+enum FileStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// --------------------------------------------------------
+// 3. CHAT & MESSAGES
+// --------------------------------------------------------
+model Chat {
+  id        String    @id @default(cuid())
+  title     String    @default("New Chat")
+  
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  messages  Message[]
+  
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  role      Role     // USER or ASSISTANT
+  content   String
+  
+  chatId    String
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  USER
+  ASSISTANT
+  SYSTEM
+}
