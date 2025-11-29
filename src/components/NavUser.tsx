@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
+import ButtonUploadFile from './ButtonUploadFile'
 
 export default function NavUser() {
   // Sessions
@@ -14,11 +15,19 @@ export default function NavUser() {
   return (
     <ul className="flex items-center gap-2">
       {status === 'authenticated' ? (
-        <li>
-          <button onClick={() => signOut()} className="button button--default">
-            Logout
-          </button>
-        </li>
+        <>
+          <li>
+            <ButtonUploadFile />
+          </li>
+          <li>
+            <button
+              onClick={() => signOut()}
+              className="button button--default"
+            >
+              Logout
+            </button>
+          </li>
+        </>
       ) : (
         <>
           {[

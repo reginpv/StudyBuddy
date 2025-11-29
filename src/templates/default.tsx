@@ -8,7 +8,7 @@ export default function DefaultTemplate({
   children: React.ReactNode
 }) {
   return (
-    <div className=" h-dvh flex flex-col">
+    <div className="min-h-dvh flex flex-col">
       <Header />
       <main className="flex-1 flex items-center justify-center ">
         {children}
