@@ -23,7 +23,7 @@ export default function ButtonUploadFile() {
         >
           <div className="flex flex-col gap-5">
             <p className="text-sm">Accepts PDF file only.</p>
-            <FormUploadFile />
+            <FormUploadFile setShowModal={setShowModal} />
           </div>
         </Modal>
       )}

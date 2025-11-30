@@ -1,26 +1,40 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect } from 'react'
 import { uploadAndEmbedFile } from '@/lib/actions/embedding'
 import { useState } from 'react'
+import toast from 'react-hot-toast'
 
-// 1. Define the initial state for the Server Action response
-const initialState = {
-  message: '',
-  error: '',
-  success: false,
-}
+export default function FormUploadFile({
+  setShowModal,
+}: {
+  setShowModal: React.Dispatch<React.SetStateAction<boolean>>
+}) {
+  // Init
+  const initialState = {
+    message: '',
+    error: '',
+    success: false,
+  }
 
-export default function FormUploadFile() {
-  // 3. Bind the Server Action to the form state
+  // Action
   const [state, handleSubmit, isPending] = useActionState(
     uploadAndEmbedFile,
     initialState
   )
 
-  // 4. Local state for immediate client-side validation errors
+  // States
   const [clientError, setClientError] = useState<string | null>(null)
 
+  // Effect dependency state
+  useEffect(() => {
+    if (state?.success) {
+      setShowModal(false)
+      toast.success(state.message)
+    }
+  }, [state])
+
+  //
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     setClientError(null) // Reset errors
