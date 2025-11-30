@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState } from 'react'
-import { uploadAndEmbedFile } from '@/lib/actions/file'
+import { uploadAndEmbedFile } from '@/lib/actions/embedding'
 import { useState } from 'react'
 
 // 1. Define the initial state for the Server Action response

@@ -16,6 +16,7 @@
   "dependencies": {
     "@ai-sdk/google": "^2.0.44",
     "@ai-sdk/react": "^2.0.104",
+    "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^6.19.0",
     "@vercel/blob": "^2.0.0",
     "ai": "^5.0.104",
