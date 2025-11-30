@@ -1,29 +1,15 @@
 'use server'
 
-import { put } from '@vercel/blob'
-import prisma from '@/lib/prisma'
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidateTag } from 'next/cache'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/authOptions'
-
-// 1. Import the new library
 import PDFParser from 'pdf2json'
-
-// AI SDK
 import { embedMany } from 'ai'
 import { google } from '@ai-sdk/google'
-import { raw } from '@prisma/client/runtime/library'
+import { put } from '@vercel/blob'
+import prisma from '@/lib/prisma'
+import { authOptions } from '@/lib/authOptions'
 
-// LlamaParse
-
-// We use 'require' to avoid the strict ESM error with pdf-parse
-// This fixes the "no default export" error you saw earlier
-// const pdf = require('pdf-parse/lib/pdf-parse.js')
-
-// --- CUSTOM HELPER FUNCTION: TEXT SPLITTER ---
-// This replaces LangChain's RecursiveCharacterTextSplitter
-// It splits text into chunks of ~1000 characters with some overlap
-// --- HELPER 2: CHUNK TEXT (FIXED) ---
+// CUSTOM HELPER FUNCTION: TEXT SPLITTER
 function chunkText(
   text: string,
   chunkSize: number = 1000,
@@ -67,11 +53,10 @@ function chunkText(
   return chunks
 }
 
-// --- HELPER 1: PARSE PDF (The Fix) ---
+// CUSTOM HELPER FUNCTION: PARSE PDF (The Fix)
 // This wraps pdf2json in a Promise so we can use "await"
 function parsePDF(buffer: Buffer): Promise<string> {
   return new Promise((resolve, reject) => {
-    // CHANGE 1 to true
     const parser = new PDFParser(null, true)
 
     parser.on('pdfParser_dataError', (errData: any) =>
@@ -79,10 +64,9 @@ function parsePDF(buffer: Buffer): Promise<string> {
     )
 
     parser.on('pdfParser_dataReady', () => {
-      // 1. Get raw text
       const rawContent = parser.getRawTextContent()
 
-      // 2. SANITIZATION: Remove Null Bytes (0x00)
+      // SANITIZATION: Remove Null Bytes (0x00)
       // This regex replaces all instances of the null character with an empty string
       const sanitizedContent = rawContent.replace(/\u0000/g, '')
 
@@ -136,8 +120,7 @@ export async function uploadAndEmbedFile(prevState: any, formData: FormData) {
     // 3. Parse PDF - Works for Next.js ESM
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
-
-    // Use our new helper function
+    // Use our helper function
     const rawText = await parsePDF(buffer)
 
     // 4. Split Text (Using our custom function)
@@ -171,7 +154,6 @@ export async function uploadAndEmbedFile(prevState: any, formData: FormData) {
       data: { status: 'COMPLETED' },
     })
 
-    // revalidatePath('/dashboard')
     revalidateTag(`files-${userId}`)
 
     return {
