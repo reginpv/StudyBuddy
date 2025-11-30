@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'My Rag',
-  description: 'This is my RAG app!',
+  title: 'StudyBuddy',
+  description: 'My AI tutor',
 }
 
 export default function RootLayout({

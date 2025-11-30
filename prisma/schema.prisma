@@ -58,9 +58,8 @@ model Embedding {
   content String // The actual text chunk
 
   // The vector data. 
-  // 1536 is standard for OpenAI (text-embedding-3-small). 
-  // Change to 768 for Nomic/HuggingFace open models.
-  vector Unsupported("vector(1536)")
+  // Google Gemini (text-embedding-004) = 768 dimensions.
+  vector Unsupported("vector(768)")
 
   metadata Json? // Store page numbers, line numbers, etc.
 
