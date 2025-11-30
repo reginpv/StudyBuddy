@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma'
 import { revalidateTag, unstable_cache as nextCache } from 'next/cache'
 import { cache } from 'react'
 import type { File } from '@prisma/client'
+import { del } from '@vercel/blob'
 
 // TYPES
 type ActionError = {
@@ -78,3 +79,51 @@ export const getFilesByUser = cache(
     return data
   }
 )
+
+// DELETE FILE AND FILE RECORD
+export async function deleteFile(
+  prevState: ActionResponse<File>,
+  formData: FormData
+): Promise<ActionResponse<File>> {
+  try {
+    // Parse the file data from FormData
+    const fileData = formData.get('file') as string
+    const file: File = JSON.parse(fileData)
+
+    // Use promise all or maybe transaction?
+    const deletions = await Promise.all([
+      del(file.url),
+      prisma.file.delete({
+        where: {
+          id: file.id,
+        },
+      }),
+    ])
+
+    console.log('Deletions', deletions)
+
+    revalidateTag(`files-${file.userId}`)
+
+    return {
+      success: true,
+      payload: file,
+      message: 'File successfully deleted.',
+      errors: [],
+    }
+
+    //
+  } catch (error) {
+    console.log('Error deleting file: ', error)
+    return {
+      success: false,
+      payload: null,
+      message: '',
+      errors: [
+        {
+          field: 'system',
+          message: 'Error deleting file. Please contact admin.',
+        },
+      ],
+    }
+  }
+}

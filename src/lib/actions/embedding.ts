@@ -79,7 +79,14 @@ function parsePDF(buffer: Buffer): Promise<string> {
     )
 
     parser.on('pdfParser_dataReady', () => {
-      resolve(parser.getRawTextContent())
+      // 1. Get raw text
+      const rawContent = parser.getRawTextContent()
+
+      // 2. SANITIZATION: Remove Null Bytes (0x00)
+      // This regex replaces all instances of the null character with an empty string
+      const sanitizedContent = rawContent.replace(/\u0000/g, '')
+
+      resolve(sanitizedContent)
     })
 
     parser.parseBuffer(buffer)

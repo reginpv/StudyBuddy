@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Modal from '@/components/Modal'
-import FormUploadFile from './forms/FormUploadFile'
+import FormUploadFile from '@/components/forms/FormUploadFile'
 
 export default function ButtonUploadFile() {
   const [showModal, setShowModal] = useState(false)
