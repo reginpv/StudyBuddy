@@ -1,11 +1,13 @@
 import FormLogin from '@/components/forms/FormLogin'
 import TemplateBare from '@/templates/Bare'
 import Link from 'next/link'
+import Logo from '@/components/Logo'
 
 export default function Login() {
   return (
     <TemplateBare>
       <div className="container">
+        <Logo className="mb-10 flex justify-center" />
         <div className="max-w-xl mx-auto flex flex-col gap-5">
           <h1 className="text-2xl font-bold text-center">Login</h1>
           <FormLogin />

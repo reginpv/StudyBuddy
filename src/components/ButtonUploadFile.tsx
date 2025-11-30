@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Modal from '@/components/Modal'
-import FormUploadFile from './forms/FormUploadFile'
+import FormUploadFile from '@/components/forms/FormUploadFile'
 
 export default function ButtonUploadFile() {
   const [showModal, setShowModal] = useState(false)
@@ -23,7 +23,7 @@ export default function ButtonUploadFile() {
         >
           <div className="flex flex-col gap-5">
             <p className="text-sm">Accepts PDF file only.</p>
-            <FormUploadFile />
+            <FormUploadFile setShowModal={setShowModal} />
           </div>
         </Modal>
       )}

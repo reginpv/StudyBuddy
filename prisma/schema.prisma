@@ -63,6 +63,7 @@ model Embedding {
 
   metadata Json? // Store page numbers, line numbers, etc.
 
+  // Cascading deletion of file to our knowledgebase
   fileId String
   file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
