@@ -24,7 +24,6 @@ export default function FormSignup() {
   )
 
   useEffect(() => {
-    console.log(state)
     if (state.success) {
       // Do toast
       toast.success('User created successfully! Redirecting to login...')
