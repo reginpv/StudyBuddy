@@ -116,6 +116,7 @@ export default function FormChat({
       >
         <div className="form-control">
           <textarea
+            name="message"
             placeholder="What do you want to know?"
             value={input} // Bind to SDK
             className="w-full p-2 border rounded resize-none" // Added basic styling

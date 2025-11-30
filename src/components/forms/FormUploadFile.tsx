@@ -70,9 +70,7 @@ export default function FormUploadFile() {
       )}
 
       {state?.success && (
-        <p className="text-green-600 text-sm bg-green-50 p-2 rounded border border-green-100">
-          ✅ {state.message}
-        </p>
+        <p className="alert alert--success">{state.message}</p>
       )}
 
       <div className="flex justify-center">

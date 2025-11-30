@@ -49,7 +49,7 @@ const Modal: React.FC<ModalProps> = ({ title, isOpen, onClose, children }) => {
         </button>
         {/** Title */}
         {title && (
-          <div className="font-bold p-5 border-b border-border">{title}</div>
+          <div className="font-bold p-5 border-b border-gray-300">{title}</div>
         )}
         <div className="p-5 max-h-[83dvh] overflow-y-auto">{children}</div>
       </div>

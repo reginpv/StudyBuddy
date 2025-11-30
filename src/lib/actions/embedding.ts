@@ -2,7 +2,7 @@
 
 import { put } from '@vercel/blob'
 import prisma from '@/lib/prisma'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/authOptions'
 
@@ -164,10 +164,12 @@ export async function uploadAndEmbedFile(prevState: any, formData: FormData) {
       data: { status: 'COMPLETED' },
     })
 
-    revalidatePath('/dashboard')
+    // revalidatePath('/dashboard')
+    revalidateTag(`files-${userId}`)
+
     return {
       success: true,
-      message: 'File processed successfully (No LangChain)!',
+      message: 'File processed successfully!',
     }
   } catch (error) {
     console.error('Pipeline error:', error)
