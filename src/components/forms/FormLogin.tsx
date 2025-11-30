@@ -29,10 +29,6 @@ export default function FormLogin() {
   })
   const [pending, setPending] = useState(false)
 
-  useEffect(() => {
-    console.log(state)
-  }, [state])
-
   // Handle
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()

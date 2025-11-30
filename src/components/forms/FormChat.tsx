@@ -3,6 +3,7 @@
 import { useChat } from '@ai-sdk/react'
 import { useEffect, useRef, useState } from 'react'
 import { UserRound, Bot } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 
 // Define props to accept the status
 interface FormChatProps {
@@ -96,7 +97,9 @@ export default function FormChat({
                         key={`${message.id}-${i}`}
                         className="bg-gray-200 flex flex-col items-center p-3 rounded-md"
                       >
-                        {part.text}
+                        <div className="[&>p]:mb-3 [&>p]:last:mb-0 [&>ul]:mb-4 [&>ul>li]:list-disc [&>ul>li]:ml-5 [&>ol>li]:list-decimal [&>ol>li]:ml-5">
+                          <ReactMarkdown>{part.text}</ReactMarkdown>
+                        </div>
                       </div>
                     )
                 }

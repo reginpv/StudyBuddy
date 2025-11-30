@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   const lastUserMessage = messages[messages.length - 1]?.content ?? ''
 
   // -------------------------------------
-  // 1. If logged in → run RAG retrieval
+  // 1. If logged in -> run RAG retrieval
   // -------------------------------------
   let ragContext = ''
 
@@ -59,21 +59,23 @@ export async function POST(req: Request) {
   // -------------------------------------
   const systemPrompt = !session
     ? `
-      You are a helpful assistant, but the user is not logged in.
-      Politely explain they should sign in to access personalized chat, knowledge base RAG,
-      saved conversations, and better answers.
-      Do NOT answer their actual question.
-    `
+    You are StudyBuddy, a friendly virtual tutor.
+    The user is not logged in, so politely explain that signing in will unlock:
+    - Personalized tutoring and chat experience
+    - Answers based on their uploaded documents (RAG)
+    - Saved conversations for future reference
+    Encourage them to log in to get the best learning experience, but do NOT answer their actual question.
+  `
     : `
-      You are a helpful assistant for the user named ${name}.
-      If the RAG context below is relevant, answer using it.
-      If it is NOT relevant, answer normally.
-      If no files were uploaded, answer normally and encourage them to upload PDFs.
+    You are StudyBuddy, a helpful virtual tutor for the user named ${name}.
+    Use the RAG context below if it is relevant to the user's question.
+    If no files have been uploaded or the RAG context is not relevant, answer normally.
+    If the user hasn't uploaded PDFs yet, gently remind them to upload files so you can provide better, personalized tutoring.
 
-      --- RAG CONTEXT START ---
-      ${ragContext || 'No relevant uploaded file content found.'}
-      --- RAG CONTEXT END ---
-    `
+    --- RAG CONTEXT START ---
+    ${ragContext || 'No relevant uploaded file content found.'}
+    --- RAG CONTEXT END ---
+  `
 
   // -------------------------------------
   // 3. Run model
