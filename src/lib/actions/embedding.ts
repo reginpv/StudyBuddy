@@ -2,21 +2,29 @@
 
 import { revalidateTag } from 'next/cache'
 import { getServerSession } from 'next-auth'
-import PDFParser from 'pdf2json'
+import { GoogleAIFileManager } from '@google/generative-ai/server'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { embedMany } from 'ai'
 import { google } from '@ai-sdk/google'
 import { put } from '@vercel/blob'
 import prisma from '@/lib/prisma'
 import { authOptions } from '@/lib/authOptions'
+import { writeFile, unlink } from 'fs/promises'
+import { join } from 'path'
+import { tmpdir } from 'os'
 
-// CUSTOM HELPER FUNCTION: TEXT SPLITTER
+// Initialize Gemini
+const GEMINI_API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY
+const fileManager = new GoogleAIFileManager(GEMINI_API_KEY)
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
+
+// TEXT SPLITTER
 function chunkText(
   text: string,
   chunkSize: number = 1000,
   overlap: number = 200
 ) {
-  if (!text || text.length === 0) return [] // Guard against empty text
-
+  if (!text || text.length === 0) return []
   const chunks: string[] = []
   let start = 0
 
@@ -24,10 +32,8 @@ function chunkText(
     const end = start + chunkSize
     let chunk = text.slice(start, end)
 
-    // Optional: Cut at period to avoid breaking sentences
     if (end < text.length) {
       const lastPeriod = chunk.lastIndexOf('.')
-      // Ensure we don't cut off too much if the period is very early
       if (lastPeriod > 0 && lastPeriod > chunk.length * 0.5) {
         chunk = chunk.slice(0, lastPeriod + 1)
       }
@@ -35,75 +41,138 @@ function chunkText(
 
     chunks.push(chunk)
 
-    // --- CRITICAL FIX START ---
-    // Calculate how much to move the cursor forward
     const step = chunk.length - overlap
-
-    // If step is 0 or negative (because the chunk is small/end of file),
-    // we must forcibly move forward by at least 1 to prevent infinite loops.
-    // Ideally, if it's the end, we just finish.
     if (step <= 0) {
-      start = text.length // Force end of loop
+      start = text.length
     } else {
       start += step
     }
-    // --- CRITICAL FIX END ---
   }
 
   return chunks
 }
 
-// CUSTOM HELPER FUNCTION: PARSE PDF (The Fix)
-// This wraps pdf2json in a Promise so we can use "await"
-function parsePDF(buffer: Buffer): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const parser = new PDFParser(null, true)
+// SANITIZE EXTRACTED TEXT
+function sanitizeText(text: string): string {
+  return text
+    .replace(/\u0000/g, '') // Null bytes
+    .replace(/\uFFFD/g, '') // Replacement character
+    .replace(/\r\n/g, '\n') // Normalize line breaks
+    .replace(/\r/g, '\n')
+    .replace(/\n{3,}/g, '\n\n') // Collapse multiple newlines
+    .trim()
+}
 
-    parser.on('pdfParser_dataError', (errData: any) =>
-      reject(errData.parserError)
-    )
+// PARSE PDF USING GEMINI FILE API
+async function parsePDFWithGemini(
+  buffer: Buffer,
+  fileName: string
+): Promise<string> {
+  const tempPdfPath = join(tmpdir(), `${Date.now()}-${fileName}`)
 
-    parser.on('pdfParser_dataReady', () => {
-      const rawContent = parser.getRawTextContent()
+  try {
+    // Write buffer to temporary file (Gemini File API requires file path)
+    await writeFile(tempPdfPath, buffer)
 
-      // SANITIZATION: Remove Null Bytes (0x00)
-      // This regex replaces all instances of the null character with an empty string
-      const sanitizedContent = rawContent.replace(/\u0000/g, '')
+    console.log('Uploading PDF to Gemini File API...')
 
-      resolve(sanitizedContent)
+    // Upload the file to Gemini
+    const uploadResponse = await fileManager.uploadFile(tempPdfPath, {
+      mimeType: 'application/pdf',
+      displayName: fileName,
     })
 
-    parser.parseBuffer(buffer)
-  })
+    console.log(`Uploaded file: ${uploadResponse.file.displayName}`)
+    console.log(`File URI: ${uploadResponse.file.uri}`)
+
+    // Wait for file to be processed (if needed)
+    let file = uploadResponse.file
+    while (file.state === 'PROCESSING') {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      file = await fileManager.getFile(file.name)
+    }
+
+    if (file.state === 'FAILED') {
+      throw new Error('Gemini failed to process the PDF')
+    }
+
+    console.log('File processed successfully, extracting text...')
+
+    // Use Gemini to extract text from the PDF
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+
+    const result = await model.generateContent([
+      {
+        fileData: {
+          mimeType: uploadResponse.file.mimeType,
+          fileUri: uploadResponse.file.uri,
+        },
+      },
+      {
+        text: 'Extract all text content from this PDF document. Return ONLY the raw text with no formatting, no summaries, no explanations. Just the complete text content exactly as it appears in the document.',
+      },
+    ])
+
+    const extractedText = result.response.text()
+
+    // Clean up: delete the file from Gemini
+    try {
+      await fileManager.deleteFile(uploadResponse.file.name)
+      console.log('Deleted file from Gemini')
+    } catch (deleteError) {
+      console.warn('Could not delete file from Gemini:', deleteError)
+    }
+
+    const sanitized = sanitizeText(extractedText)
+
+    if (!sanitized) {
+      throw new Error('Gemini returned empty text content')
+    }
+
+    return sanitized
+  } catch (error: any) {
+    throw new Error(`Gemini PDF parsing failed: ${error.message}`)
+  } finally {
+    // Clean up temp file
+    try {
+      await unlink(tempPdfPath)
+    } catch {}
+  }
 }
 
 export async function uploadAndEmbedFile(prevState: any, formData: FormData) {
-  // Session
   const session = await getServerSession(authOptions)
   if (!session) return { error: 'Unauthorized' }
 
-  // TODO: Replace with real user session
   const userId = session.user.id
-
-  // File
   const file = formData.get('file') as File
 
-  //
-  if (!file || file.size === 0) return { error: 'No file provided.' }
+  if (!file || file.size === 0) {
+    return { error: 'No file provided.' }
+  }
 
-  // PDF only
-  if (file.type !== 'application/pdf') return { error: 'File must be a PDF.' }
+  if (file.type !== 'application/pdf') {
+    return { error: 'File must be a PDF.' }
+  }
+
+  // Gemini supports up to 50MB PDFs
+  const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
+  if (file.size > MAX_FILE_SIZE) {
+    return { error: 'File size exceeds 50MB limit.' }
+  }
+
+  let fileRecord: any = null
 
   try {
-    // Vercel blob
     // 1. Upload to Blob
+    console.log(`Uploading file: ${file.name} (${file.size} bytes)`)
     const blob = await put(`${userId}/${file.name}`, file, {
       access: 'public',
       addRandomSuffix: true,
     })
 
     // 2. Create DB Record
-    const fileRecord = await prisma.file.create({
+    fileRecord = await prisma.file.create({
       data: {
         name: file.name,
         url: blob.url,
@@ -117,38 +186,74 @@ export async function uploadAndEmbedFile(prevState: any, formData: FormData) {
       },
     })
 
-    // 3. Parse PDF - Works for Next.js ESM
+    // 3. Parse PDF using Gemini
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
-    // Use our helper function
-    const rawText = await parsePDF(buffer)
 
-    // 4. Split Text (Using our custom function)
+    let rawText: string
+    try {
+      rawText = await parsePDFWithGemini(buffer, file.name)
+      console.log(`Extracted ${rawText.length} characters from PDF`)
+    } catch (parseError: any) {
+      console.error('PDF parsing failed:', parseError)
+
+      await prisma.file.update({
+        where: { id: fileRecord.id },
+        data: { status: 'FAILED' },
+      })
+
+      return {
+        error: parseError.message || 'Failed to parse PDF.',
+      }
+    }
+
+    // 4. Split Text
     const chunks = chunkText(rawText)
+
+    if (chunks.length === 0) {
+      await prisma.file.update({
+        where: { id: fileRecord.id },
+        data: { status: 'FAILED' },
+      })
+      return { error: 'No text content found in PDF.' }
+    }
+
     console.log(`Split into ${chunks.length} chunks`)
 
     // 5. Embed with AI SDK
+    console.log('Generating embeddings...')
     const { embeddings } = await embedMany({
       model: google.textEmbeddingModel('text-embedding-004'),
       values: chunks,
     })
 
-    // 6. Save to DB
-    await Promise.all(
-      chunks.map(async (chunk, i) => {
-        await prisma.$executeRaw`
-          INSERT INTO "Embedding" ("id", "content", "vector", "fileId")
-          VALUES (
-            gen_random_uuid(), 
-            ${chunk}, 
-            ${JSON.stringify(embeddings[i])}::vector, 
-            ${fileRecord.id}
-          );
-        `
-      })
-    )
+    // 6. Save to DB in batches
+    console.log('Saving embeddings to database...')
+    const BATCH_SIZE = 50
+    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+      const batch = chunks.slice(i, i + BATCH_SIZE)
+      await Promise.all(
+        batch.map(async (chunk, batchIndex) => {
+          const globalIndex = i + batchIndex
+          await prisma.$executeRaw`
+            INSERT INTO "Embedding" ("id", "content", "vector", "fileId")
+            VALUES (
+              gen_random_uuid(),
+              ${chunk},
+              ${JSON.stringify(embeddings[globalIndex])}::vector,
+              ${fileRecord.id}
+            );
+          `
+        })
+      )
+      console.log(
+        `Saved batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(
+          chunks.length / BATCH_SIZE
+        )}`
+      )
+    }
 
-    // 7. Finish
+    // 7. Mark as completed
     await prisma.file.update({
       where: { id: fileRecord.id },
       data: { status: 'COMPLETED' },
@@ -156,13 +261,28 @@ export async function uploadAndEmbedFile(prevState: any, formData: FormData) {
 
     revalidateTag(`files-${userId}`)
 
+    console.log('✓ File processing complete!')
     return {
       success: true,
-      message: 'File processed successfully!',
+      message: `File processed successfully! Generated ${chunks.length} embeddings.`,
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Pipeline error:', error)
-    return { error: 'Failed to process file.' }
+
+    if (fileRecord) {
+      try {
+        await prisma.file.update({
+          where: { id: fileRecord.id },
+          data: { status: 'FAILED' },
+        })
+      } catch (updateError) {
+        console.error('Failed to update file status:', updateError)
+      }
+    }
+
+    return {
+      error: error.message || 'Failed to process file. Please try again.',
+    }
   }
 }
 
