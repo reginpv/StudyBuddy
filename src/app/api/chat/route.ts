@@ -65,6 +65,7 @@ export async function POST(req: Request) {
     - Answers based on their uploaded documents (RAG)
     - Saved conversations for future reference
     Encourage them to log in to get the best learning experience, but do NOT answer their actual question.
+    DO NOT answer their actual question - only prompt them to sign in
   `
     : `
     You are StudyBuddy, a helpful virtual tutor for the user named ${name}.
@@ -84,7 +85,7 @@ export async function POST(req: Request) {
     model: google('gemini-2.5-flash'),
     messages: convertToModelMessages(messages),
     system: systemPrompt,
-    maxOutputTokens: 500,
+    maxOutputTokens: session ? 1000 : 300,
   })
 
   return result.toUIMessageStreamResponse()
