@@ -6,7 +6,7 @@ import { GoogleAIFileManager } from '@google/generative-ai/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { embedMany } from 'ai'
 import { google } from '@ai-sdk/google'
-import { put } from '@vercel/blob'
+import { put, del } from '@vercel/blob'
 import prisma from '@/lib/prisma'
 import { authOptions } from '@/lib/authOptions'
 import { writeFile, unlink } from 'fs/promises'
@@ -161,17 +161,62 @@ export async function uploadAndEmbedFile(prevState: any, formData: FormData) {
     return { error: 'File size exceeds 50MB limit.' }
   }
 
+  let blobUrl: string | null = null
   let fileRecord: any = null
 
   try {
-    // 1. Upload to Blob
-    console.log(`Uploading file: ${file.name} (${file.size} bytes)`)
+    // STEP 1: Parse PDF using Gemini (BEFORE uploading)
+    console.log(`Processing file: ${file.name} (${file.size} bytes)`)
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+
+    let rawText: string
+    try {
+      rawText = await parsePDFWithGemini(buffer, file.name)
+      console.log(`✓ Extracted ${rawText.length} characters from PDF`)
+    } catch (parseError: any) {
+      console.error('PDF parsing failed:', parseError)
+      return {
+        error: parseError.message || 'Failed to parse PDF.',
+      }
+    }
+
+    // STEP 2: Split Text
+    const chunks = chunkText(rawText)
+
+    if (chunks.length === 0) {
+      return { error: 'No text content found in PDF.' }
+    }
+
+    console.log(`✓ Split into ${chunks.length} chunks`)
+
+    // STEP 3: Generate Embeddings (BEFORE uploading)
+    console.log('Generating embeddings...')
+    let embeddings: number[][]
+    try {
+      const result = await embedMany({
+        model: google.textEmbeddingModel('text-embedding-004'),
+        values: chunks,
+      })
+      embeddings = result.embeddings
+      console.log(`✓ Generated ${embeddings.length} embeddings`)
+    } catch (embeddingError: any) {
+      console.error('Embedding generation failed:', embeddingError)
+      return {
+        error: embeddingError.message || 'Failed to generate embeddings.',
+      }
+    }
+
+    // STEP 4: Upload to Blob (ONLY after embeddings are ready)
+    console.log('Uploading to Blob storage...')
     const blob = await put(`${userId}/${file.name}`, file, {
       access: 'public',
       addRandomSuffix: true,
     })
+    blobUrl = blob.url
+    console.log(`✓ Uploaded to: ${blobUrl}`)
 
-    // 2. Create DB Record
+    // STEP 5: Create DB Record
     fileRecord = await prisma.file.create({
       data: {
         name: file.name,
@@ -186,48 +231,7 @@ export async function uploadAndEmbedFile(prevState: any, formData: FormData) {
       },
     })
 
-    // 3. Parse PDF using Gemini
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-
-    let rawText: string
-    try {
-      rawText = await parsePDFWithGemini(buffer, file.name)
-      console.log(`Extracted ${rawText.length} characters from PDF`)
-    } catch (parseError: any) {
-      console.error('PDF parsing failed:', parseError)
-
-      await prisma.file.update({
-        where: { id: fileRecord.id },
-        data: { status: 'FAILED' },
-      })
-
-      return {
-        error: parseError.message || 'Failed to parse PDF.',
-      }
-    }
-
-    // 4. Split Text
-    const chunks = chunkText(rawText)
-
-    if (chunks.length === 0) {
-      await prisma.file.update({
-        where: { id: fileRecord.id },
-        data: { status: 'FAILED' },
-      })
-      return { error: 'No text content found in PDF.' }
-    }
-
-    console.log(`Split into ${chunks.length} chunks`)
-
-    // 5. Embed with AI SDK
-    console.log('Generating embeddings...')
-    const { embeddings } = await embedMany({
-      model: google.textEmbeddingModel('text-embedding-004'),
-      values: chunks,
-    })
-
-    // 6. Save to DB in batches
+    // STEP 6: Save Embeddings to DB in batches
     console.log('Saving embeddings to database...')
     const BATCH_SIZE = 50
     for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
@@ -247,13 +251,13 @@ export async function uploadAndEmbedFile(prevState: any, formData: FormData) {
         })
       )
       console.log(
-        `Saved batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(
+        `✓ Saved batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(
           chunks.length / BATCH_SIZE
         )}`
       )
     }
 
-    // 7. Mark as completed
+    // STEP 7: Mark as completed
     await prisma.file.update({
       where: { id: fileRecord.id },
       data: { status: 'COMPLETED' },
@@ -261,7 +265,7 @@ export async function uploadAndEmbedFile(prevState: any, formData: FormData) {
 
     revalidateTag(`files-${userId}`)
 
-    console.log('✓ File processing complete!')
+    console.log('✅ File processing complete!')
     return {
       success: true,
       message: `File processed successfully! Generated ${chunks.length} embeddings.`,
@@ -269,14 +273,26 @@ export async function uploadAndEmbedFile(prevState: any, formData: FormData) {
   } catch (error: any) {
     console.error('Pipeline error:', error)
 
+    // CLEANUP: Remove uploaded blob if processing failed
+    if (blobUrl) {
+      try {
+        console.log('Cleaning up uploaded blob...')
+        await del(blobUrl)
+        console.log('✓ Blob deleted')
+      } catch (deleteError) {
+        console.error('Failed to delete blob:', deleteError)
+      }
+    }
+
+    // CLEANUP: Update file status or delete record
     if (fileRecord) {
       try {
-        await prisma.file.update({
+        await prisma.file.delete({
           where: { id: fileRecord.id },
-          data: { status: 'FAILED' },
         })
-      } catch (updateError) {
-        console.error('Failed to update file status:', updateError)
+        console.log('✓ Database record deleted')
+      } catch (deleteError) {
+        console.error('Failed to delete file record:', deleteError)
       }
     }
 
