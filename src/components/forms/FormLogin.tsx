@@ -67,8 +67,6 @@ export default function FormLogin() {
         redirect: false,
       })
 
-      console.log('RES: ', res)
-
       if (res?.ok === true) {
         setState({
           message: 'Logged in successfully!',

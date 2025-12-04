@@ -20,6 +20,7 @@ const eslintConfig = [
       'next-env.d.ts',
     ],
     rules: {
+      // For new in TS, allow this for now
       '@typescript-eslint/no-explicit-any': 'off',
     },
   },
