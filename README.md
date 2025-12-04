@@ -2,6 +2,26 @@
 
 This is a basic **RAG (Retrieval-Augmented Generation)** application built during a hands-on technical workshop.
 
+<table>
+  <tr>
+    <td align="center">
+      <img src="https://2oka0lsbwibgvkxc.public.blob.vercel-storage.com/Screenshot_1.png" alt="Dashboard" width="300"/>
+      <br />
+      <sub><b>Dashboard View</b></sub>
+    </td>
+    <td align="center">
+      <img src="https://2oka0lsbwibgvkxc.public.blob.vercel-storage.com/Screenshot_2.png" alt="Chat" width="300"/>
+      <br />
+      <sub><b>Chat Interface</b></sub>
+    </td>
+    <td align="center">
+      <img src="https://2oka0lsbwibgvkxc.public.blob.vercel-storage.com/Screenshot_3.png" alt="Settings" width="300"/>
+      <br />
+      <sub><b>Settings Page</b></sub>
+    </td>
+  </tr>
+</table>
+
 ### 🎓 Project Context
 
 The goal of this project was to learn the fundamentals of AI engineering by building a functional "Chat with your Data" assistant. It serves as a starter kit for understanding how to connect a database, file storage, and an LLM to create intelligent applications.
